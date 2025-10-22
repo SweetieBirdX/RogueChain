@@ -105,12 +105,82 @@ async function mintHero() {
     }
 }
 
-// GÖREV 7'de doldurulacak
 async function enterDungeon() {
-    log("Entering dungeon... (Not implemented yet)");
+    if (!contract || userHeroId === null) {
+        log("Not ready to enter dungeon.");
+        return;
+    }
+
+    log("1. Fetching Pyth price updates from Hermes...");
+    enterDungeonButton.disabled = true;
+    enterDungeonButton.textContent = "Fetching Data...";
+
+    try {
+        // 1. Pyth Hermes'ten imzalı fiyat verilerini al (PULL ORACLE ADIMI)
+        const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
+
+        log("2. Price data fetched. Sending transaction... (Check Wallet)");
+        enterDungeonButton.textContent = "Waiting for Tx...";
+
+        // 2. Kontratı çağır
+        // Pyth Price Feed ve Pyth Entropy için gerekli ücretleri al
+        // Bu değerleri kontrattan okumak en doğrusu olurdu ama hackathon hızı için
+        // tahmini bir değer (ör: 0.001 ETH) gönderebiliriz.
+        // Daha iyisi: Gerekli ücretleri kontrattan okuyalım.
+        const pythUpdateFee = await contract.pyth.getUpdateFee(priceUpdateData);
+        const entropyFee = await contract.pythEntropy.getFee();
+        const totalFee = pythUpdateFee.add(entropyFee);
+
+        log(`Total fee (Update + Entropy): ${ethers.utils.formatEther(totalFee)} ETH`);
+
+        const tx = await contract.enterDungeon(userHeroId, priceUpdateData, {
+            value: totalFee
+        });
+
+        log(`3. Transaction sent (tx: ${tx.hash.substring(0, 10)}...). Waiting for confirmation...`);
+        enterDungeonButton.textContent = "Waiting for Blocks...";
+
+        const receipt = await tx.wait();
+        log("4. Dungeon entry confirmed. Waiting for Pyth Entropy callback...");
+        enterDungeonButton.textContent = "Waiting for Oracle...";
+
+        // Event'i bekleyip sonucu göstereceğiz (listenForEvents halledecek)
+
+    } catch (e) {
+        log(`Error entering dungeon: ${e.message}`);
+        enterDungeonButton.disabled = false;
+        enterDungeonButton.textContent = "Enter Dungeon";
+    }
 }
 
-// GÖREV 7'de doldurulacak
 function listenForEvents() {
-    log("Event listener setup... (Not implemented yet)");
+    if (!contract) return;
+
+    log("Setting up event listeners for DungeonResult...");
+
+    contract.on("DungeonResult", (requestId, player, victory, lootAmount, heroLost) => {
+        log("--- DUNGEON RESULT RECEIVED ---");
+        log(`Request ID: ${requestId}`);
+        log(`Player: ${player}`);
+
+        if (victory) {
+            log(`Result: VICTORY!`);
+            log(`Loot Won: ${lootAmount.toString()} (simulated)`);
+        } else {
+            log(`Result: DEFEAT!`);
+        }
+
+        if (heroLost) {
+            log("!!! YOUR HERO WAS LOST TO THE DUNGEON (PERMADEATH) !!!");
+            checkHeroStatus(); // NFT'nin kaybolduğunu UI'da göster
+        }
+
+        log("---------------------------------");
+        enterDungeonButton.disabled = false;
+        enterDungeonButton.textContent = "Enter Dungeon";
+    });
+
+    contract.on("DungeonEnter", (requestId, player, heroId) => {
+        log(`Event: DungeonEnter detected for Hero ${heroId.toString()}. Request ID: ${requestId}`);
+    });
 }
