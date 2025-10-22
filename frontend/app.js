@@ -1,133 +1,116 @@
-// RogueChain Frontend Application
-class RogueChainApp {
-    constructor() {
-        this.provider = null;
-        this.signer = null;
-        this.contract = null;
-        this.contractAddress = '0x4fAe93ba1f478c48fC5C05fbF896c4E14d4F54aC';
-        this.abi = null;
-        
-        this.init();
+// Kullanıcı bu adresi Görev 4'teki deploy çıktısıyla değiştirmeli
+const contractAddress = "0x4fAe93ba1f478c48fC5C05fbF896c4E14d4F54aC";
+let contractABI; // ABI'yi yükleyeceğiz
+
+let provider;
+let signer;
+let contract;
+
+const connectButton = document.getElementById("connectButton");
+const walletAddress = document.getElementById("walletAddress");
+const gameControls = document.getElementById("gameControls");
+const mintHeroButton = document.getElementById("mintHeroButton");
+const heroStatus = document.getElementById("heroStatus");
+const enterDungeonButton = document.getElementById("enterDungeonButton");
+const logOutput = document.getElementById("logOutput");
+
+// Pyth EVM JS SDK (Global scope'tan gelir)
+const { EvmPriceServiceConnection } = PythEVM;
+const pythConnection = new EvmPriceServiceConnection("https://hermes.pyth.network");
+// Optimism Sepolia'da kullanacağımız Price ID'ler
+const priceIds = [
+    "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace", // ETH/USD
+    "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"  // BTC/USD
+];
+
+window.addEventListener("load", async () => {
+    log("App loaded. Loading ABI...");
+    try {
+        const response = await fetch("./abi.json");
+        contractABI = await response.json();
+        log("ABI loaded.");
+    } catch (e) {
+        log("Error loading ABI: " + e.message);
     }
 
-    async init() {
-        this.log('RogueChain App initialized');
-        this.setupEventListeners();
-        await this.loadABI();
+    connectButton.addEventListener("click", connectWallet);
+    mintHeroButton.addEventListener("click", mintHero);
+    enterDungeonButton.addEventListener("click", enterDungeon);
+});
+
+function log(message) {
+    console.log(message);
+    logOutput.textContent = `${new Date().toLocaleTimeString()}: ${message}\n${logOutput.textContent}`;
+}
+
+async function connectWallet() {
+    if (typeof window.ethereum === "undefined") {
+        log("Metamask is not installed!");
+        return;
     }
 
-    async loadABI() {
-        try {
-            const response = await fetch('./abi.json');
-            this.abi = await response.json();
-            this.log('Contract ABI loaded successfully');
-        } catch (error) {
-            this.log('Error loading ABI: ' + error.message);
-        }
-    }
+    try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
 
-    setupEventListeners() {
-        document.getElementById('connectButton').addEventListener('click', () => this.connectWallet());
-        document.getElementById('mintHeroButton').addEventListener('click', () => this.mintHero());
-        document.getElementById('enterDungeonButton').addEventListener('click', () => this.enterDungeon());
-    }
+        // Optimism Sepolia'ya geçişi zorla
+        await provider.send("wallet_switchEthereumChain", [{ chainId: "0xaa37dc" }]); // 11155420 (Optimism Sepolia)
 
-    async connectWallet() {
-        try {
-            if (typeof window.ethereum !== 'undefined') {
-                this.provider = new ethers.providers.Web3Provider(window.ethereum);
-                this.signer = this.provider.getSigner();
-                
-                // Request account access
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                
-                const address = await this.signer.getAddress();
-                document.getElementById('walletAddress').textContent = `Connected: ${address}`;
-                document.getElementById('connectButton').textContent = 'Connected';
-                document.getElementById('connectButton').disabled = true;
-                document.getElementById('gameControls').style.display = 'block';
-                
-                // Initialize contract
-                this.contract = new ethers.Contract(this.contractAddress, this.abi, this.signer);
-                
-                this.log(`Wallet connected: ${address}`);
-                await this.loadHeroData();
-            } else {
-                this.log('MetaMask not found! Please install MetaMask.');
-            }
-        } catch (error) {
-            this.log('Error connecting wallet: ' + error.message);
-        }
-    }
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
 
-    async mintHero() {
-        try {
-            this.log('Minting hero...');
-            const tx = await this.contract.mintHero();
-            this.log(`Transaction sent: ${tx.hash}`);
-            
-            const receipt = await tx.wait();
-            this.log(`Hero minted! Transaction confirmed: ${receipt.transactionHash}`);
-            
-            await this.loadHeroData();
-        } catch (error) {
-            this.log('Error minting hero: ' + error.message);
-        }
-    }
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
 
-    async loadHeroData() {
-        try {
-            const userHeroes = await this.contract.getUserHeroes(await this.signer.getAddress());
-            if (userHeroes.length > 0) {
-                const heroId = userHeroes[0];
-                const hero = await this.contract.getHero(heroId);
-                const stats = await this.contract.getHeroStats(heroId);
-                
-                document.getElementById('heroStatus').innerHTML = `
-                    <strong>Hero #${heroId}</strong><br>
-                    Level: ${stats.level}<br>
-                    Experience: ${stats.experience}<br>
-                    Strength: ${stats.strength} | Agility: ${stats.agility}<br>
-                    Intelligence: ${stats.intelligence} | Vitality: ${stats.vitality}<br>
-                    Luck: ${stats.luck}
-                `;
-                
-                document.getElementById('enterDungeonButton').disabled = false;
-            } else {
-                document.getElementById('heroStatus').textContent = 'No hero found. Mint one first!';
-            }
-        } catch (error) {
-            this.log('Error loading hero data: ' + error.message);
-        }
-    }
+        walletAddress.textContent = `Connected: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        connectButton.style.display = "none";
+        gameControls.style.display = "block";
 
-    async enterDungeon() {
-        try {
-            this.log('Entering dungeon...');
-            const userHeroes = await this.contract.getUserHeroes(await this.signer.getAddress());
-            const heroId = userHeroes[0];
-            
-            const tx = await this.contract.startGameSession(heroId);
-            this.log(`Dungeon entered! Transaction: ${tx.hash}`);
-            
-            const receipt = await tx.wait();
-            this.log(`Game session started! Transaction confirmed: ${receipt.transactionHash}`);
-            
-        } catch (error) {
-            this.log('Error entering dungeon: ' + error.message);
-        }
-    }
-
-    log(message) {
-        const logOutput = document.getElementById('logOutput');
-        const timestamp = new Date().toLocaleTimeString();
-        logOutput.textContent += `[${timestamp}] ${message}\n`;
-        logOutput.scrollTop = logOutput.scrollHeight;
-        console.log(message);
+        log("Wallet connected.");
+        checkHeroStatus();
+        listenForEvents();
+    } catch (e) {
+        log(`Error connecting: ${e.message}`);
     }
 }
 
-// Initialize app when page loads
-document.addEventListener('DOMContentLoaded', () => {
-    new RogueChainApp();
-});
+let userHeroId = null;
+
+async function checkHeroStatus() {
+    if (!contract) return;
+    const address = await signer.getAddress();
+    const balance = await contract.balanceOf(address);
+
+    if (balance.toNumber() > 0) {
+        userHeroId = await contract.tokenOfOwnerByIndex(address, 0);
+        heroStatus.textContent = `Hero ID: ${userHeroId.toString()}`;
+        mintHeroButton.disabled = true;
+        enterDungeonButton.disabled = false;
+    } else {
+        heroStatus.textContent = "No hero found. Mint one!";
+        mintHeroButton.disabled = false;
+        enterDungeonButton.disabled = true;
+    }
+}
+
+async function mintHero() {
+    if (!contract) return;
+    log("Minting hero... check wallet.");
+    try {
+        const tx = await contract.mintHero();
+        await tx.wait();
+        log("Hero minted successfully!");
+        checkHeroStatus();
+    } catch (e) {
+        log(`Error minting: ${e.message}`);
+    }
+}
+
+// GÖREV 7'de doldurulacak
+async function enterDungeon() {
+    log("Entering dungeon... (Not implemented yet)");
+}
+
+// GÖREV 7'de doldurulacak
+function listenForEvents() {
+    log("Event listener setup... (Not implemented yet)");
+}
