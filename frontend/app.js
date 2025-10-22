@@ -1,5 +1,5 @@
 // Kullanıcı bu adresi Görev 4'teki deploy çıktısıyla değiştirmeli
-const contractAddress = "0x427dF7708Df56fc4A482680748295D41aFC03C47";
+const contractAddress = "0x0EE3F1d60b31b981DA34EB96289f44225C38fB7F";
 let contractABI; // ABI'yi yükleyeceğiz
 
 let provider;
@@ -21,19 +21,48 @@ let priceIds = [
     "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"  // BTC/USD
 ];
 
-// Pyth SDK'yı güvenli şekilde yükle
+// Manuel Pyth API entegrasyonu
 function initPyth() {
     try {
-        if (typeof PythEVM !== 'undefined' && PythEVM.EvmPriceServiceConnection) {
-            pythConnection = new PythEVM.EvmPriceServiceConnection("https://hermes.pyth.network");
-            log("Pyth SDK loaded successfully");
-            return true;
-        } else {
-            log("Pyth SDK not available, dungeon features will be limited");
-            return false;
-        }
+        log("Initializing manual Pyth API integration...");
+        
+        // Manuel Pyth connection objesi oluştur
+        pythConnection = {
+            getPriceFeedsUpdateData: async function(priceIds) {
+                log("Fetching price data from Pyth Hermes API...");
+                
+                try {
+                    // Pyth Hermes API'sini direkt çağır
+                    const response = await fetch('https://hermes.pyth.network/v2/updates/price/latest', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ids: priceIds
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    log("Price data fetched successfully from Hermes");
+                    
+                    // Pyth formatında döndür
+                    return data;
+                } catch (error) {
+                    log(`Error fetching price data: ${error.message}`);
+                    throw error;
+                }
+            }
+        };
+        
+        log("Manual Pyth API integration initialized successfully!");
+        return true;
     } catch (e) {
-        log(`Error initializing Pyth: ${e.message}`);
+        log(`Error initializing manual Pyth: ${e.message}`);
         return false;
     }
 }
