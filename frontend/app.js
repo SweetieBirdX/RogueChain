@@ -1,5 +1,5 @@
 // Kullanıcı bu adresi Görev 4'teki deploy çıktısıyla değiştirmeli
-const contractAddress = "0x0EE3F1d60b31b981DA34EB96289f44225C38fB7F";
+const contractAddress = "0x01b4b5227A1234A32b23bdBCF63C354f1253C963";
 let contractABI; // ABI'yi yükleyeceğiz
 
 let provider;
@@ -32,15 +32,12 @@ function initPyth() {
                 log("Fetching price data from Pyth Hermes API...");
                 
                 try {
-                    // Pyth Hermes API'sini direkt çağır
-                    const response = await fetch('https://hermes.pyth.network/v2/updates/price/latest', {
-                        method: 'POST',
+                    // Pyth Hermes API'sini doğru endpoint ile çağır
+                    const response = await fetch(`https://hermes.pyth.network/v2/updates/price/latest?ids[]=${priceIds.join('&ids[]=')}`, {
+                        method: 'GET',
                         headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            ids: priceIds
-                        })
+                            'Accept': 'application/json',
+                        }
                     });
                     
                     if (!response.ok) {
@@ -50,8 +47,16 @@ function initPyth() {
                     const data = await response.json();
                     log("Price data fetched successfully from Hermes");
                     
-                    // Pyth formatında döndür
-                    return data;
+                    // Pyth API'den gelen data'yı bytes[] formatına çevir
+                    // Hermes API'den gelen binary data'yı kullan
+                    if (data.binary && data.binary.data) {
+                        // Hex string'leri 0x prefix ile bytes'a çevir
+                        const binaryData = data.binary.data;
+                        return binaryData.map(hexString => "0x" + hexString);
+                    } else {
+                        // Fallback: basit hex string array
+                        return ["0x" + data.parsed[0].id, "0x" + data.parsed[1].id];
+                    }
                 } catch (error) {
                     log(`Error fetching price data: ${error.message}`);
                     throw error;
@@ -228,18 +233,12 @@ async function enterDungeon() {
         enterDungeonButton.textContent = "Waiting for Tx...";
 
         // 2. Kontratı çağır
-        // Pyth Price Feed ve Pyth Entropy için gerekli ücretleri al
-        // Bu değerleri kontrattan okumak en doğrusu olurdu ama hackathon hızı için
-        // tahmini bir değer (ör: 0.001 ETH) gönderebiliriz.
-        // Daha iyisi: Gerekli ücretleri kontrattan okuyalım.
-        const pythUpdateFee = await contract.pyth.getUpdateFee(priceUpdateData);
-        const entropyFee = await contract.pythEntropy.getFee();
-        const totalFee = pythUpdateFee.add(entropyFee);
-
-        log(`Total fee (Update + Entropy): ${ethers.utils.formatEther(totalFee)} ETH`);
+        // Basit fee hesaplama (hackathon hızı için)
+        const estimatedFee = ethers.utils.parseEther("0.001"); // 0.001 ETH
+        log(`Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`);
 
         const tx = await contract.enterDungeon(userHeroId, priceUpdateData, {
-            value: totalFee
+            value: estimatedFee
         });
 
         log(`3. Transaction sent (tx: ${tx.hash.substring(0, 10)}...). Waiting for confirmation...`);
