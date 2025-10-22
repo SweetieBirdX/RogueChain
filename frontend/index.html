@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RogueChain</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <!-- Pyth EVM JS SDK (CDN üzerinden) -->
+    <script src="https://unpkg.com/@pythnetwork/pyth-evm-js@1.30.0/lib/index.umd.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; display: grid; place-items: center; min-height: 100vh; }
+        #app { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #ccc; }
+        #logs { margin-top: 20px; background: #eee; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h2>RogueChain</h2>
+        <button id="connectButton">Connect Wallet</button>
+        <p id="walletAddress"></p>
+
+        <div id="gameControls" style="display:none;">
+            <hr>
+            <h3>Hero</h3>
+            <button id="mintHeroButton">Mint Hero NFT</button>
+            <p id="heroStatus"></p>
+            <hr>
+            <h3>Dungeon</h3>
+            <button id="enterDungeonButton" disabled>Enter Dungeon</button>
+        </div>
+
+        <div id="logs">
+            <strong>Logs:</strong>
+            <pre id="logOutput"></pre>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
