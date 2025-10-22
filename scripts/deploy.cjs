@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+const hre = require("hardhat");
 
 async function main() {
   console.log("Deploying RogueChain contract...");
@@ -13,7 +13,7 @@ async function main() {
   // BTC/USD
   const btcPriceId = "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43";
 
-  const RogueChain = await ethers.getContractFactory("RogueChain");
+  const RogueChain = await hre.ethers.getContractFactory("RogueChain");
   const rogueChain = await RogueChain.deploy(
     pythAddress,
     pythEntropyAddress,
