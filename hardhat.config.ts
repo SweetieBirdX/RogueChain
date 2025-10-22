@@ -43,7 +43,7 @@ const config: HardhatUserConfig = {
     optimismSepolia: {
       type: "http",
       chainType: "op",
-      url: process.env.OP_SEPOLIA_RPC_URL || "",
+      url: process.env.OP_SEPOLIA_RPC_URL || "https://sepolia.optimism.io",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
