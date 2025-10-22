@@ -192,6 +192,34 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
         );
     }
     
+    // Game functions
+    function enterDungeon(uint256 heroId, bytes[] memory priceUpdateData) external payable onlyHeroOwner(heroId) nonReentrant {
+        require(heroes[heroId].level > 0, "Hero does not exist");
+        
+        // Pyth price update fee hesapla
+        uint256 updateFee = pyth.getUpdateFee(priceUpdateData);
+        require(msg.value >= updateFee, "Insufficient fee for Pyth update");
+        
+        // Pyth price update'i çağır
+        pyth.updatePriceFeeds{value: updateFee}(priceUpdateData);
+        
+        // Basit dungeon logic (gerçek Pyth entegrasyonu için placeholder)
+        uint256 randomResult = _generateRandomStat(1, 100);
+        bool victory = (randomResult % 2) == 0; // %50 şans
+        
+        if (victory) {
+            // Hero level up
+            heroes[heroId].level += 1;
+            heroes[heroId].experience += 100;
+            emit HeroLeveledUp(heroId, heroes[heroId].level);
+        }
+        
+        // Kalan ETH'i geri gönder
+        if (msg.value > updateFee) {
+            payable(msg.sender).transfer(msg.value - updateFee);
+        }
+    }
+    
     // Admin functions
     function setPyth(address _pyth) external onlyOwner {
         pyth = IPyth(_pyth);
