@@ -195,15 +195,9 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Game functions
     function enterDungeon(uint256 heroId, bytes[] memory priceUpdateData) external payable onlyHeroOwner(heroId) nonReentrant {
         require(heroes[heroId].level > 0, "Hero does not exist");
+        require(msg.value >= 0.001 ether, "Insufficient fee");
         
-        // Pyth price update fee hesapla
-        uint256 updateFee = pyth.getUpdateFee(priceUpdateData);
-        require(msg.value >= updateFee, "Insufficient fee for Pyth update");
-        
-        // Pyth price update'i çağır
-        pyth.updatePriceFeeds{value: updateFee}(priceUpdateData);
-        
-        // Basit dungeon logic (gerçek Pyth entegrasyonu için placeholder)
+        // Basit dungeon logic (Pyth entegrasyonu için placeholder)
         uint256 randomResult = _generateRandomStat(1, 100);
         bool victory = (randomResult % 2) == 0; // %50 şans
         
@@ -215,8 +209,8 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
         }
         
         // Kalan ETH'i geri gönder
-        if (msg.value > updateFee) {
-            payable(msg.sender).transfer(msg.value - updateFee);
+        if (msg.value > 0.001 ether) {
+            payable(msg.sender).transfer(msg.value - 0.001 ether);
         }
     }
     
