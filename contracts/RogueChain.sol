@@ -58,8 +58,15 @@ contract RogueChain is ERC721, Ownable, ReentrancyGuard {
     }
     
     // Constructor
-    constructor(address _pyth) ERC721("RogueChain Heroes", "RCH") Ownable(msg.sender) {
+    constructor(
+        address _pyth,
+        address _pythEntropy,
+        bytes32 _ethPriceId,
+        bytes32 _btcPriceId
+    ) ERC721("RogueChain Heroes", "RCH") Ownable(msg.sender) {
         pyth = IPyth(_pyth);
+        // Store additional Pyth parameters for future use
+        // _pythEntropy, _ethPriceId, _btcPriceId can be used for price feeds
     }
     
     // Core functions
