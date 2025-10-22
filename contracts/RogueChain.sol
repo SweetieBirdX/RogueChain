@@ -2,11 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
 
-contract RogueChain is ERC721, Ownable, ReentrancyGuard {
+contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard {
     
     // Events
     event HeroMinted(uint256 indexed heroId, address indexed owner, uint256 level);
@@ -201,7 +202,7 @@ contract RogueChain is ERC721, Ownable, ReentrancyGuard {
     }
     
     // Override functions
-    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+    function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Enumerable) returns (address) {
         address from = _ownerOf(tokenId);
         
         if (from != address(0)) {
@@ -222,5 +223,14 @@ contract RogueChain is ERC721, Ownable, ReentrancyGuard {
         }
         
         return super._update(to, tokenId, auth);
+    }
+    
+    // ERC721Enumerable override functions
+    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
+        super._increaseBalance(account, value);
+    }
+    
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
