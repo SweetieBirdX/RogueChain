@@ -333,6 +333,18 @@ function updateMarketStatus() {
             marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
         }).catch(e => {
             log(`Error fetching market state: ${e.message}`);
+            // Fallback to normal market if price feed fails
+            const marketStatus = document.getElementById('marketStatus');
+            marketStatus.innerHTML = `
+                <div style="color: #4ecdc4; font-size: 18px;">
+                    📊 Normal Market (Fallback)
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    Price feed unavailable - using fallback
+                </div>
+            `;
+            marketStatus.style.background = `linear-gradient(135deg, #4ecdc420, #4ecdc410)`;
+            marketStatus.style.border = `2px solid #4ecdc4`;
         });
     } catch (e) {
         log(`Error updating market status: ${e.message}`);
