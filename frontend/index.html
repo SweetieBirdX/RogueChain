@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RogueChain</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <!-- Pyth SDK geçici olarak devre dışı - Manuel API kullanacağız -->
     <style>
         body { font-family: Arial, sans-serif; background: #f0f2f5; display: grid; place-items: center; min-height: 100vh; }
         #app { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -21,6 +20,11 @@
         <p id="walletAddress"></p>
 
         <div id="gameControls" style="display:none;">
+            <hr>
+            <h3>Market Status</h3>
+            <div id="marketStatus" style="padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center; font-weight: bold;">
+                Loading market data...
+            </div>
             <hr>
             <h3>Hero</h3>
             <button id="mintHeroButton">Mint Hero NFT</button>

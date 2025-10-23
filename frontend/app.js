@@ -156,9 +156,10 @@ async function connectWallet() {
         connectButton.style.display = "none";
         gameControls.style.display = "block";
 
-        log("Wallet connected successfully!");
-        checkHeroStatus();
-        listenForEvents();
+            log("Wallet connected successfully!");
+            checkHeroStatus();
+            updateMarketStatus();
+            listenForEvents();
     } catch (e) {
         log(`Error connecting: ${e.message}`);
         console.error("Full error:", e);
@@ -225,30 +226,32 @@ async function enterDungeon() {
     enterDungeonButton.disabled = true;
     enterDungeonButton.textContent = "Fetching Data...";
 
-    try {
-        // 1. Pyth Hermes'ten imzalı fiyat verilerini al (PULL ORACLE ADIMI)
-        const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
+        try {
+            // 1. Basit bytes[] array oluştur (kontrat şimdilik kullanmıyor)
+            const priceUpdateData = ["0x00"]; // Basit placeholder data
 
-        log("2. Price data fetched. Sending transaction... (Check Wallet)");
-        enterDungeonButton.textContent = "Waiting for Tx...";
+            log("2. Price data prepared. Sending transaction... (Check Wallet)");
+            enterDungeonButton.textContent = "Waiting for Tx...";
 
-        // 2. Kontratı çağır
-        // Basit fee hesaplama (hackathon hızı için)
-        const estimatedFee = ethers.utils.parseEther("0.001"); // 0.001 ETH
-        log(`Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`);
+            // 2. Kontratı çağır
+            // Basit fee hesaplama (hackathon hızı için)
+            const estimatedFee = ethers.utils.parseEther("0.001"); // 0.001 ETH
+            log(`Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`);
 
-        const tx = await contract.enterDungeon(userHeroId, priceUpdateData, {
-            value: estimatedFee
-        });
+            const tx = await contract.enterDungeon(userHeroId, priceUpdateData, {
+                value: estimatedFee
+            });
 
         log(`3. Transaction sent (tx: ${tx.hash.substring(0, 10)}...). Waiting for confirmation...`);
         enterDungeonButton.textContent = "Waiting for Blocks...";
 
         const receipt = await tx.wait();
-        log("4. Dungeon entry confirmed. Waiting for Pyth Entropy callback...");
-        enterDungeonButton.textContent = "Waiting for Oracle...";
-
-        // Event'i bekleyip sonucu göstereceğiz (listenForEvents halledecek)
+        log("4. Dungeon entry confirmed!");
+        enterDungeonButton.textContent = "Dungeon Complete!";
+        
+        // UI'yi güncelle
+        enterDungeonButton.disabled = false;
+        checkHeroStatus();
 
     } catch (e) {
         log(`Error entering dungeon: ${e.message}`);
@@ -283,4 +286,102 @@ function listenForEvents() {
         enterDungeonButton.textContent = "Enter Dungeon";
         checkHeroStatus();
     });
+
+    // New market-based events
+    contract.on("DungeonVictory", (heroId, victoryChance, marketState) => {
+        const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+        log(`🎉 Dungeon Victory! Hero ${heroId} won with ${victoryChance}% chance in ${marketNames[marketState]}`);
+        checkHeroStatus();
+    });
+
+    contract.on("DungeonDefeat", (heroId, victoryChance, marketState) => {
+        const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+        log(`💀 Dungeon Defeat! Hero ${heroId} lost with ${victoryChance}% chance in ${marketNames[marketState]}`);
+        checkHeroStatus();
+    });
+
+    contract.on("RewardEarned", (heroId, amount, marketName) => {
+        log(`💰 Reward earned: ${amount} XP in ${marketName} for Hero ${heroId}`);
+    });
+
+    contract.on("MarketEventTriggered", (eventName, description) => {
+        log(`📈 Market Event: ${eventName} - ${description}`);
+        showMarketEvent(eventName, description);
+    });
+}
+
+// Market state display function
+function updateMarketStatus() {
+    if (!contract) return;
+    
+    try {
+        contract.getMarketState().then(marketState => {
+            const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+            const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
+            const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+            
+            const marketStatus = document.getElementById('marketStatus');
+            marketStatus.innerHTML = `
+                <div style="color: ${marketColors[marketState]}; font-size: 18px;">
+                    ${marketEmojis[marketState]} ${marketNames[marketState]}
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    Current ETH market conditions
+                </div>
+            `;
+            marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
+            marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
+        }).catch(e => {
+            log(`Error fetching market state: ${e.message}`);
+        });
+    } catch (e) {
+        log(`Error updating market status: ${e.message}`);
+    }
+}
+
+// Market event display function
+function showMarketEvent(eventName, description) {
+    // Create a temporary notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1000;
+        font-weight: bold;
+        max-width: 300px;
+        animation: slideIn 0.5s ease-out;
+    `;
+    
+    notification.innerHTML = `
+        <div style="font-size: 16px; margin-bottom: 5px;">📈 ${eventName}</div>
+        <div style="font-size: 14px; opacity: 0.9;">${description}</div>
+    `;
+    
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.5s ease-out reverse';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 500);
+    }, 5000);
 }
