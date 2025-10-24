@@ -291,8 +291,8 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard, IPyth
         require(heroes[heroId].level > 0, "Hero does not exist");
         require(msg.value >= 0.001 ether, "Insufficient fee");
         
-        // Update Pyth price feeds
-        pyth.updatePriceFeeds(priceUpdateData);
+        // Update Pyth price feeds with fee
+        pyth.updatePriceFeeds{value: msg.value}(priceUpdateData);
         
         // Request randomness from Pyth Entropy
         bytes32 requestId = keccak256(abi.encodePacked(block.timestamp, block.prevrandao, heroId, msg.sender));
