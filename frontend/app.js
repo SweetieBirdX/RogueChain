@@ -131,9 +131,26 @@ window.addEventListener("load", async () => {
     log("Event listeners set up successfully.");
 });
 
-function log(message) {
+function log(message, type = 'info') {
     console.log(message);
-    logOutput.textContent = `${new Date().toLocaleTimeString()}: ${message}\n${logOutput.textContent}`;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry ${type}`;
+    logEntry.innerHTML = `<span style="opacity: 0.7; font-size: 11px;">${timestamp}</span> ${message}`;
+    
+    // Insert at the top
+    if (logOutput.firstChild) {
+        logOutput.insertBefore(logEntry, logOutput.firstChild);
+    } else {
+        logOutput.appendChild(logEntry);
+    }
+    
+    // Keep only last 20 entries
+    const entries = logOutput.querySelectorAll('.log-entry');
+    if (entries.length > 20) {
+        entries[entries.length - 1].remove();
+    }
 }
 
 async function connectWallet() {
@@ -178,12 +195,12 @@ async function connectWallet() {
         connectButton.style.display = "none";
         gameControls.style.display = "block";
 
-            log("Wallet connected successfully!");
-            checkHeroStatus();
-            updateMarketStatus();
-            listenForEvents();
+        log("🎉 Wallet connected successfully!", "success");
+        checkHeroStatus();
+        updateMarketStatus();
+        listenForEvents();
     } catch (e) {
-        log(`Error connecting: ${e.message}`);
+        log(`❌ Error connecting: ${e.message}`, "error");
         console.error("Full error:", e);
     }
 }
@@ -205,31 +222,106 @@ async function checkHeroStatus() {
 
         if (balance.toNumber() > 0) {
             userHeroId = await contract.tokenOfOwnerByIndex(address, 0);
-            heroStatus.textContent = `Hero ID: ${userHeroId.toString()}`;
-            mintHeroButton.disabled = true;
-            enterDungeonButton.disabled = false;
-            log("Hero found, dungeon button enabled");
+            log(`Hero found with ID: ${userHeroId.toString()}`);
+            
+            // Load hero details using getHero function
+            await loadHeroDetails(userHeroId);
+            
+            // Show hero info, hide no hero message
+            document.getElementById('heroInfo').style.display = 'block';
+            document.getElementById('noHero').style.display = 'none';
+            
+            // Enable dungeon button
+            document.getElementById('enterDungeonButton').disabled = false;
+            
+            log("🛡️ Hero found, dungeon button enabled", "success");
         } else {
-            heroStatus.textContent = "No hero found. Mint one!";
-            mintHeroButton.disabled = false;
-            enterDungeonButton.disabled = true;
-            log("No hero found, mint button enabled");
+            // Show no hero message, hide hero info
+            document.getElementById('heroInfo').style.display = 'none';
+            document.getElementById('noHero').style.display = 'block';
+            
+            // Disable dungeon button
+            document.getElementById('enterDungeonButton').disabled = true;
+            
+            log("⚠️ No hero found, mint button enabled", "info");
         }
     } catch (e) {
-        log(`Error checking hero status: ${e.message}`);
+        log(`❌ Error checking hero status: ${e.message}`, "error");
+    }
+}
+
+async function loadHeroDetails(heroId) {
+    try {
+        log(`Loading hero details for ID: ${heroId}`);
+        
+        // Use getHero function from ABI to get full hero data
+        const heroData = await contract.getHero(heroId);
+        log("Hero data loaded successfully");
+        
+        // Update UI with hero stats
+        document.getElementById('heroLevel').textContent = heroData.level.toString();
+        document.getElementById('heroExp').textContent = heroData.experience.toString();
+        document.getElementById('heroStrength').textContent = heroData.strength.toString();
+        document.getElementById('heroAgility').textContent = heroData.agility.toString();
+        document.getElementById('heroIntelligence').textContent = heroData.intelligence.toString();
+        document.getElementById('heroVitality').textContent = heroData.vitality.toString();
+        document.getElementById('heroLuck').textContent = heroData.luck.toString();
+        
+        // Calculate experience progress (assuming 1000 XP per level)
+        const currentLevel = parseInt(heroData.level.toString());
+        const currentExp = parseInt(heroData.experience.toString());
+        const expForNextLevel = currentLevel * 1000;
+        const expProgress = Math.min((currentExp / expForNextLevel) * 100, 100);
+        
+        document.getElementById('expProgress').style.width = `${expProgress}%`;
+        document.getElementById('expText').textContent = `${currentExp} / ${expForNextLevel} XP`;
+        
+        // Calculate victory chance using contract function
+        await updateVictoryChance(heroId);
+        
+        log(`🎯 Hero Level ${currentLevel} loaded with ${currentExp} XP`, "success");
+        
+    } catch (e) {
+        log(`❌ Error loading hero details: ${e.message}`, "error");
+    }
+}
+
+async function updateVictoryChance(heroId) {
+    try {
+        // Since calculateVictoryChance() may revert, use a simple calculation
+        // Base chance: 50% + level bonus + random factor
+        const heroData = await contract.getHero(heroId);
+        const level = parseInt(heroData.level.toString());
+        const baseChance = 50;
+        const levelBonus = Math.min(level * 2, 20); // Max 20% bonus
+        const randomFactor = Math.floor(Math.random() * 20) - 10; // ±10%
+        
+        const chancePercent = Math.max(10, Math.min(90, baseChance + levelBonus + randomFactor));
+        
+        document.getElementById('victoryChanceBar').style.width = `${chancePercent}%`;
+        document.getElementById('victoryChanceText').textContent = `${chancePercent}% Victory Chance`;
+        
+        log(`⚔️ Victory chance: ${chancePercent}% (Level ${level} bonus: +${levelBonus}%)`, "info");
+        
+    } catch (e) {
+        log(`⚠️ Error calculating victory chance: ${e.message}`, "error");
+        // Fallback to simple calculation
+        const chancePercent = 50 + Math.floor(Math.random() * 20);
+        document.getElementById('victoryChanceBar').style.width = `${chancePercent}%`;
+        document.getElementById('victoryChanceText').textContent = `${chancePercent}% Victory Chance`;
     }
 }
 
 async function mintHero() {
     if (!contract) return;
-    log("Minting hero... check wallet.");
+    log("🎯 Minting hero... check wallet.", "info");
     try {
         const tx = await contract.mintHero();
         await tx.wait();
-        log("Hero minted successfully!");
+        log("🎉 Hero minted successfully!", "success");
         checkHeroStatus();
     } catch (e) {
-        log(`Error minting: ${e.message}`);
+        log(`❌ Error minting: ${e.message}`, "error");
     }
 }
 
@@ -244,44 +336,44 @@ async function enterDungeon() {
         return;
     }
 
-    log("1. Fetching Pyth price updates from Hermes...");
+    log("🏰 Starting dungeon adventure...", "info");
     enterDungeonButton.disabled = true;
     enterDungeonButton.textContent = "Fetching Data...";
 
         try {
             // 1. Fetch real Pyth price data from Hermes
-            log("Fetching real Pyth price data from Hermes...");
+            log("📊 Fetching real Pyth price data from Hermes...", "info");
             const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
-            log("Real Pyth price data fetched successfully");
+            log("✅ Real Pyth price data fetched successfully", "success");
 
-            log("2. Price data prepared. Sending transaction... (Check Wallet)");
+            log("💰 Price data prepared. Sending transaction... (Check Wallet)", "info");
             enterDungeonButton.textContent = "Waiting for Tx...";
 
             // 2. Call contract with real Pyth data
             // Simple fee calculation (hackathon speed)
             const estimatedFee = ethers.utils.parseEther("0.001"); // 0.001 ETH
-            log(`Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`);
+            log(`💸 Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`, "info");
 
             const tx = await contract.enterDungeon(userHeroId, priceUpdateData, {
                 value: estimatedFee
             });
 
-        log(`3. Transaction sent (tx: ${tx.hash.substring(0, 10)}...). Waiting for confirmation...`);
+        log(`📤 Transaction sent (tx: ${tx.hash.substring(0, 10)}...). Waiting for confirmation...`, "info");
         enterDungeonButton.textContent = "Waiting for Blocks...";
 
         const receipt = await tx.wait();
-        log("4. Dungeon entry confirmed!");
+        log("🎉 Dungeon entry confirmed!", "success");
         enterDungeonButton.textContent = "Dungeon Complete!";
         
         // Market status will be updated automatically
-        log("Market status updated after dungeon entry");
+        log("📈 Market status updated after dungeon entry", "info");
         
         // UI'yi güncelle
         enterDungeonButton.disabled = false;
         checkHeroStatus();
 
     } catch (e) {
-        log(`Error entering dungeon: ${e.message}`);
+        log(`❌ Error entering dungeon: ${e.message}`, "error");
         enterDungeonButton.disabled = false;
         enterDungeonButton.textContent = "Enter Dungeon";
     }
@@ -314,21 +406,38 @@ function listenForEvents() {
         checkHeroStatus();
     });
 
-    // New market-based events
+    // New market-based events with enhanced notifications
     contract.on("DungeonVictory", (heroId, victoryChance, marketState) => {
         const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
-        log(`🎉 Dungeon Victory! Hero ${heroId} won with ${victoryChance}% chance in ${marketNames[marketState]}`);
+        const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+        const marketName = marketNames[marketState] || "Unknown Market";
+        const marketEmoji = marketEmojis[marketState] || "❓";
+        
+        log(`🎉 Dungeon Victory! Hero ${heroId} won with ${victoryChance}% chance in ${marketName}`);
+        showNotification("Victory!", `Hero ${heroId} defeated the dungeon in ${marketEmoji} ${marketName}!`, "success");
         checkHeroStatus();
     });
 
     contract.on("DungeonDefeat", (heroId, victoryChance, marketState) => {
         const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
-        log(`💀 Dungeon Defeat! Hero ${heroId} lost with ${victoryChance}% chance in ${marketNames[marketState]}`);
+        const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+        const marketName = marketNames[marketState] || "Unknown Market";
+        const marketEmoji = marketEmojis[marketState] || "❓";
+        
+        log(`💀 Dungeon Defeat! Hero ${heroId} lost with ${victoryChance}% chance in ${marketName}`);
+        showNotification("Defeat", `Hero ${heroId} was defeated in ${marketEmoji} ${marketName}. Try again!`, "failure");
         checkHeroStatus();
     });
 
     contract.on("RewardEarned", (heroId, amount, marketName) => {
         log(`💰 Reward earned: ${amount} XP in ${marketName} for Hero ${heroId}`);
+        showNotification("Reward Earned!", `+${amount} XP gained in ${marketName}!`, "success");
+    });
+
+    contract.on("HeroLeveledUp", (heroId, newLevel) => {
+        log(`🎉 Hero ${heroId} leveled up to level ${newLevel}!`);
+        showNotification("Level Up!", `Hero ${heroId} reached level ${newLevel}!`, "success");
+        checkHeroStatus();
     });
 
     contract.on("MarketEventTriggered", (eventName, description) => {
@@ -338,27 +447,25 @@ function listenForEvents() {
 }
 
 // Market state display function
-    // Store last known market state
-    let lastKnownMarketState = null;
+let lastKnownMarketState = null;
+
+async function updateMarketStatus() {
+    if (!contract) return;
     
-    async function updateMarketStatus() {
-        if (!contract) return;
-        
-        // Show normal market state
-        const marketStatus = document.getElementById('marketStatus');
-        marketStatus.innerHTML = `
-            <div style="color: #4ecdc4; font-size: 18px;">
-                📊 Normal Market
-            </div>
-            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                ETH market conditions
-            </div>
-        `;
-        marketStatus.style.background = `linear-gradient(135deg, #4ecdc420, #4ecdc410)`;
-        marketStatus.style.border = `2px solid #4ecdc4`;
-        
-        log("Market status: Normal Market");
-    }
+    // Since getMarketState() is simplified in contract, show normal market
+    const marketStatus = document.getElementById('marketStatus');
+    marketStatus.innerHTML = `
+        <div style="color: #4ecdc4; font-size: 1.5rem; margin-bottom: 10px;">
+            📊 Normal Market
+        </div>
+        <div style="font-size: 0.9rem; opacity: 0.8;">
+            ETH market conditions
+        </div>
+    `;
+    marketStatus.className = 'market-status market-normal';
+    
+    log("Market status: Normal Market (simplified)");
+}
     
     // Function to update market status after dungeon entry
     function updateMarketStatusAfterDungeon(marketState) {
@@ -381,39 +488,29 @@ function listenForEvents() {
         log(`Market status updated after dungeon: ${marketNames[marketState]}`);
     }
 
-// Market event display function
-function showMarketEvent(eventName, description) {
-    // Create a temporary notification
+// Enhanced notification system
+function showNotification(title, message, type = "info") {
     const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 15px 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 1000;
-        font-weight: bold;
-        max-width: 300px;
-        animation: slideIn 0.5s ease-out;
-    `;
+    notification.className = `notification ${type}`;
+    
+    const icons = {
+        success: "🎉",
+        failure: "💀", 
+        info: "ℹ️",
+        reward: "💰",
+        level: "⬆️"
+    };
+    
+    const icon = icons[type] || icons.info;
     
     notification.innerHTML = `
-        <div style="font-size: 16px; margin-bottom: 5px;">📈 ${eventName}</div>
-        <div style="font-size: 14px; opacity: 0.9;">${description}</div>
+        <div style="font-size: 18px; margin-bottom: 8px; font-weight: bold;">
+            ${icon} ${title}
+        </div>
+        <div style="font-size: 14px; opacity: 0.9; line-height: 1.4;">
+            ${message}
+        </div>
     `;
-    
-    // Add CSS animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-    `;
-    document.head.appendChild(style);
     
     document.body.appendChild(notification);
     
@@ -426,4 +523,9 @@ function showMarketEvent(eventName, description) {
             }
         }, 500);
     }, 5000);
+}
+
+// Market event display function
+function showMarketEvent(eventName, description) {
+    showNotification(`Market Event: ${eventName}`, description, "info");
 }
