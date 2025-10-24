@@ -335,59 +335,53 @@ function listenForEvents() {
 }
 
 // Market state display function
-async function updateMarketStatus() {
-    if (!contract || !pythConnection) return;
-    
-    try {
-        log("Updating market status with real Pyth data...");
+    async function updateMarketStatus() {
+        if (!contract) return;
         
-        // 1. First, fetch fresh Pyth price data
-        const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
-        log("Fresh Pyth price data fetched");
-        
-        // 2. Update price feeds and get market state in one call
-        log(`Sending ${priceUpdateData.length} price update data items to contract...`);
-        const marketState = await contract.updatePriceFeedsAndGetMarketState(priceUpdateData, {
-            value: ethers.utils.parseEther("0.001") // 0.001 ETH fee
-        });
-        log(`Market state fetched: ${marketState}`);
-        
-        const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
-        const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
-        const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
-        
-        const marketStatus = document.getElementById('marketStatus');
-        marketStatus.innerHTML = `
-            <div style="color: ${marketColors[marketState]}; font-size: 18px;">
-                ${marketEmojis[marketState]} ${marketNames[marketState]}
-            </div>
-            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                Real-time ETH market conditions
-            </div>
-        `;
-        marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
-        marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
-        
-        log(`Market status updated: ${marketNames[marketState]}`);
-        
-    } catch (e) {
-        log(`Error updating market status: ${e.message}`);
-        console.error("Full error:", e);
-        
-        // Show error state
-        const marketStatus = document.getElementById('marketStatus');
-        marketStatus.innerHTML = `
-            <div style="color: #ff6b6b; font-size: 18px;">
-                ⚠️ Market Data Error
-            </div>
-            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                Click "Enter Dungeon" to update price feeds
-            </div>
-        `;
-        marketStatus.style.background = `linear-gradient(135deg, #ff6b6b20, #ff6b6b10)`;
-        marketStatus.style.border = `2px solid #ff6b6b`;
+        try {
+            log("Getting market state from contract...");
+            
+            // Simply get the current market state without updating price feeds
+            // This will use the last updated price data from dungeon entries
+            const marketState = await contract.getMarketState();
+            log(`Market state fetched: ${marketState}`);
+            
+            const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+            const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
+            const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+            
+            const marketStatus = document.getElementById('marketStatus');
+            marketStatus.innerHTML = `
+                <div style="color: ${marketColors[marketState]}; font-size: 18px;">
+                    ${marketEmojis[marketState]} ${marketNames[marketState]}
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    Based on last dungeon entry data
+                </div>
+            `;
+            marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
+            marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
+            
+            log(`Market status updated: ${marketNames[marketState]}`);
+            
+        } catch (e) {
+            log(`Error getting market status: ${e.message}`);
+            console.error("Full error:", e);
+            
+            // Show error state
+            const marketStatus = document.getElementById('marketStatus');
+            marketStatus.innerHTML = `
+                <div style="color: #ff6b6b; font-size: 18px;">
+                    ⚠️ Market Data Error
+                </div>
+                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                    Enter dungeon to update price feeds first
+                </div>
+            `;
+            marketStatus.style.background = `linear-gradient(135deg, #ff6b6b20, #ff6b6b10)`;
+            marketStatus.style.border = `2px solid #ff6b6b`;
+        }
     }
-}
 
 // Market event display function
 function showMarketEvent(eventName, description) {
