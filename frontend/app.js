@@ -273,6 +273,14 @@ async function enterDungeon() {
         log("4. Dungeon entry confirmed!");
         enterDungeonButton.textContent = "Dungeon Complete!";
         
+        // Update market status after successful dungeon entry
+        try {
+            const marketState = await contract.getMarketState();
+            updateMarketStatusAfterDungeon(marketState);
+        } catch (e) {
+            log(`Could not update market status: ${e.message}`);
+        }
+        
         // UI'yi güncelle
         enterDungeonButton.disabled = false;
         checkHeroStatus();
@@ -335,52 +343,47 @@ function listenForEvents() {
 }
 
 // Market state display function
+    // Store last known market state
+    let lastKnownMarketState = null;
+    
     async function updateMarketStatus() {
         if (!contract) return;
         
-        try {
-            log("Getting market state from contract...");
-            
-            // Simply get the current market state without updating price feeds
-            // This will use the last updated price data from dungeon entries
-            const marketState = await contract.getMarketState();
-            log(`Market state fetched: ${marketState}`);
-            
-            const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
-            const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
-            const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
-            
-            const marketStatus = document.getElementById('marketStatus');
-            marketStatus.innerHTML = `
-                <div style="color: ${marketColors[marketState]}; font-size: 18px;">
-                    ${marketEmojis[marketState]} ${marketNames[marketState]}
-                </div>
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                    Based on last dungeon entry data
-                </div>
-            `;
-            marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
-            marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
-            
-            log(`Market status updated: ${marketNames[marketState]}`);
-            
-        } catch (e) {
-            log(`Error getting market status: ${e.message}`);
-            console.error("Full error:", e);
-            
-            // Show error state
-            const marketStatus = document.getElementById('marketStatus');
-            marketStatus.innerHTML = `
-                <div style="color: #ff6b6b; font-size: 18px;">
-                    ⚠️ Market Data Error
-                </div>
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                    Enter dungeon to update price feeds first
-                </div>
-            `;
-            marketStatus.style.background = `linear-gradient(135deg, #ff6b6b20, #ff6b6b10)`;
-            marketStatus.style.border = `2px solid #ff6b6b`;
-        }
+        // Show waiting state - user needs to enter dungeon first to get market data
+        const marketStatus = document.getElementById('marketStatus');
+        marketStatus.innerHTML = `
+            <div style="color: #ffa500; font-size: 18px;">
+                ⏳ Waiting for Market Data
+            </div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                Enter dungeon to fetch real-time ETH prices
+            </div>
+        `;
+        marketStatus.style.background = `linear-gradient(135deg, #ffa50020, #ffa50010)`;
+        marketStatus.style.border = `2px solid #ffa500`;
+        
+        log("Market status: Waiting for dungeon entry to fetch price data");
+    }
+    
+    // Function to update market status after dungeon entry
+    function updateMarketStatusAfterDungeon(marketState) {
+        const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+        const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
+        const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+        
+        const marketStatus = document.getElementById('marketStatus');
+        marketStatus.innerHTML = `
+            <div style="color: ${marketColors[marketState]}; font-size: 18px;">
+                ${marketEmojis[marketState]} ${marketNames[marketState]}
+            </div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                Updated from dungeon entry
+            </div>
+        `;
+        marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
+        marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
+        
+        log(`Market status updated after dungeon: ${marketNames[marketState]}`);
     }
 
 // Market event display function

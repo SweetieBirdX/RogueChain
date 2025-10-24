@@ -224,7 +224,7 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard, IPyth
     // Game functions
     // Market state detection
     function getMarketState() public view returns (MarketState) {
-        try pyth.getPriceNoOlderThan(ethPriceId, 3600) returns (PythStructs.Price memory price) {
+        try pyth.getPriceNoOlderThan(ethPriceId, 86400) returns (PythStructs.Price memory price) {
             // Price is already in the correct format (e.g., 3000e8 for $3000)
             if (price.price < 2000e8) return MarketState.BEAR;      // < $2000
             else if (price.price < 3000e8) return MarketState.NORMAL; // $2000-3000
