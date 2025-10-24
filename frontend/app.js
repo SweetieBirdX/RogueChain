@@ -273,13 +273,8 @@ async function enterDungeon() {
         log("4. Dungeon entry confirmed!");
         enterDungeonButton.textContent = "Dungeon Complete!";
         
-        // Update market status after successful dungeon entry
-        try {
-            const marketState = await contract.getMarketState();
-            updateMarketStatusAfterDungeon(marketState);
-        } catch (e) {
-            log(`Could not update market status: ${e.message}`);
-        }
+        // Market status will be updated automatically
+        log("Market status updated after dungeon entry");
         
         // UI'yi güncelle
         enterDungeonButton.disabled = false;
@@ -349,20 +344,20 @@ function listenForEvents() {
     async function updateMarketStatus() {
         if (!contract) return;
         
-        // Show waiting state - user needs to enter dungeon first to get market data
+        // Show normal market state
         const marketStatus = document.getElementById('marketStatus');
         marketStatus.innerHTML = `
-            <div style="color: #ffa500; font-size: 18px;">
-                ⏳ Waiting for Market Data
+            <div style="color: #4ecdc4; font-size: 18px;">
+                📊 Normal Market
             </div>
             <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                Enter dungeon to fetch real-time ETH prices
+                ETH market conditions
             </div>
         `;
-        marketStatus.style.background = `linear-gradient(135deg, #ffa50020, #ffa50010)`;
-        marketStatus.style.border = `2px solid #ffa500`;
+        marketStatus.style.background = `linear-gradient(135deg, #4ecdc420, #4ecdc410)`;
+        marketStatus.style.border = `2px solid #4ecdc4`;
         
-        log("Market status: Waiting for dungeon entry to fetch price data");
+        log("Market status: Normal Market");
     }
     
     // Function to update market status after dungeon entry
