@@ -52,10 +52,17 @@ function initPyth() {
                     if (data.binary && data.binary.data) {
                         // Hex string'leri 0x prefix ile bytes'a çevir
                         const binaryData = data.binary.data;
+                        log(`Binary data length: ${binaryData.length}`);
+                        log(`First few bytes: ${binaryData.slice(0, 3)}`);
                         return binaryData.map(hexString => "0x" + hexString);
-                    } else {
-                        // Fallback: basit hex string array
+                    } else if (data.parsed && data.parsed.length > 0) {
+                        // Fallback: parsed data'dan binary data oluştur
+                        log("Using parsed data as fallback");
                         return ["0x" + data.parsed[0].id, "0x" + data.parsed[1].id];
+                    } else {
+                        // Son fallback: boş array
+                        log("No valid data found, using empty array");
+                        return [];
                     }
                 } catch (error) {
                     log(`Error fetching price data: ${error.message}`);
@@ -106,6 +113,21 @@ window.addEventListener("load", async () => {
     connectButton.addEventListener("click", connectWallet);
     mintHeroButton.addEventListener("click", mintHero);
     enterDungeonButton.addEventListener("click", enterDungeon);
+    
+    // Update market button
+    const updateMarketButton = document.getElementById('updateMarketButton');
+    updateMarketButton.addEventListener('click', async () => {
+        updateMarketButton.disabled = true;
+        updateMarketButton.textContent = "🔄 Updating...";
+        try {
+            await updateMarketStatus();
+        } catch (e) {
+            log(`Error updating market: ${e.message}`);
+        } finally {
+            updateMarketButton.disabled = false;
+            updateMarketButton.textContent = "🔄 Update Market Data";
+        }
+    });
     log("Event listeners set up successfully.");
 });
 
@@ -227,14 +249,16 @@ async function enterDungeon() {
     enterDungeonButton.textContent = "Fetching Data...";
 
         try {
-            // 1. Basit bytes[] array oluştur (kontrat şimdilik kullanmıyor)
-            const priceUpdateData = ["0x00"]; // Basit placeholder data
+            // 1. Fetch real Pyth price data from Hermes
+            log("Fetching real Pyth price data from Hermes...");
+            const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
+            log("Real Pyth price data fetched successfully");
 
             log("2. Price data prepared. Sending transaction... (Check Wallet)");
             enterDungeonButton.textContent = "Waiting for Tx...";
 
-            // 2. Kontratı çağır
-            // Basit fee hesaplama (hackathon hızı için)
+            // 2. Call contract with real Pyth data
+            // Simple fee calculation (hackathon speed)
             const estimatedFee = ethers.utils.parseEther("0.001"); // 0.001 ETH
             log(`Estimated fee: ${ethers.utils.formatEther(estimatedFee)} ETH`);
 
@@ -311,43 +335,57 @@ function listenForEvents() {
 }
 
 // Market state display function
-function updateMarketStatus() {
-    if (!contract) return;
+async function updateMarketStatus() {
+    if (!contract || !pythConnection) return;
     
     try {
-        contract.getMarketState().then(marketState => {
-            const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
-            const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
-            const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
-            
-            const marketStatus = document.getElementById('marketStatus');
-            marketStatus.innerHTML = `
-                <div style="color: ${marketColors[marketState]}; font-size: 18px;">
-                    ${marketEmojis[marketState]} ${marketNames[marketState]}
-                </div>
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                    Current ETH market conditions
-                </div>
-            `;
-            marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
-            marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
-        }).catch(e => {
-            log(`Error fetching market state: ${e.message}`);
-            // Fallback to normal market if price feed fails
-            const marketStatus = document.getElementById('marketStatus');
-            marketStatus.innerHTML = `
-                <div style="color: #4ecdc4; font-size: 18px;">
-                    📊 Normal Market (Fallback)
-                </div>
-                <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
-                    Price feed unavailable - using fallback
-                </div>
-            `;
-            marketStatus.style.background = `linear-gradient(135deg, #4ecdc420, #4ecdc410)`;
-            marketStatus.style.border = `2px solid #4ecdc4`;
+        log("Updating market status with real Pyth data...");
+        
+        // 1. First, fetch fresh Pyth price data
+        const priceUpdateData = await pythConnection.getPriceFeedsUpdateData(priceIds);
+        log("Fresh Pyth price data fetched");
+        
+        // 2. Update price feeds and get market state in one call
+        log(`Sending ${priceUpdateData.length} price update data items to contract...`);
+        const marketState = await contract.updatePriceFeedsAndGetMarketState(priceUpdateData, {
+            value: ethers.utils.parseEther("0.001") // 0.001 ETH fee
         });
+        log(`Market state fetched: ${marketState}`);
+        
+        const marketNames = ["Bear Market", "Normal Market", "Bull Market", "Extreme Market"];
+        const marketColors = ["#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4"];
+        const marketEmojis = ["🐻", "📊", "🐂", "⚡"];
+        
+        const marketStatus = document.getElementById('marketStatus');
+        marketStatus.innerHTML = `
+            <div style="color: ${marketColors[marketState]}; font-size: 18px;">
+                ${marketEmojis[marketState]} ${marketNames[marketState]}
+            </div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                Real-time ETH market conditions
+            </div>
+        `;
+        marketStatus.style.background = `linear-gradient(135deg, ${marketColors[marketState]}20, ${marketColors[marketState]}10)`;
+        marketStatus.style.border = `2px solid ${marketColors[marketState]}`;
+        
+        log(`Market status updated: ${marketNames[marketState]}`);
+        
     } catch (e) {
         log(`Error updating market status: ${e.message}`);
+        console.error("Full error:", e);
+        
+        // Show error state
+        const marketStatus = document.getElementById('marketStatus');
+        marketStatus.innerHTML = `
+            <div style="color: #ff6b6b; font-size: 18px;">
+                ⚠️ Market Data Error
+            </div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                Click "Enter Dungeon" to update price feeds
+            </div>
+        `;
+        marketStatus.style.background = `linear-gradient(135deg, #ff6b6b20, #ff6b6b10)`;
+        marketStatus.style.border = `2px solid #ff6b6b`;
     }
 }
 

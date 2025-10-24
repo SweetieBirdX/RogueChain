@@ -235,6 +235,24 @@ contract RogueChain is ERC721, ERC721Enumerable, Ownable, ReentrancyGuard, IPyth
         }
     }
     
+    // Update price feeds and get market state
+    function updatePriceFeedsAndGetMarketState(bytes[] memory priceUpdateData) external payable returns (MarketState) {
+        // Validate input data
+        require(priceUpdateData.length > 0, "No price update data provided");
+        
+        // Update price feeds first with the provided fee
+        try pyth.updatePriceFeeds{value: msg.value}(priceUpdateData) {
+            // Price feeds updated successfully
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("Pyth update failed: ", reason)));
+        } catch {
+            revert("Pyth update failed with unknown error");
+        }
+        
+        // Now get market state
+        return getMarketState();
+    }
+    
     // Market influence calculation
     function getMarketInfluence(MarketState market) internal pure returns (int256) {
         if (market == MarketState.BEAR) return -25;      // -25% (kolay)
